@@ -73,7 +73,7 @@ class ProjectDocumentsRelationManager extends RelationManager
                             ->maxSize(10240) // 10MB
                             ->openable()
                             ->required(),
- */
+ 
                         Textarea::make('remarks')
                             ->rows(3)
                             ->columnSpanFull(),
