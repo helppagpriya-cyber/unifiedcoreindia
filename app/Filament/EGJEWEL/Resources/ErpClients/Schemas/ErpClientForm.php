@@ -15,7 +15,7 @@ class ErpClientForm
         return $schema
             ->components([
                 Section::make('Company Information')
-                    ->columns(2)
+                    ->columns(3)
                     ->schema([
                         TextInput::make('client_code')
                             ->label('Client Code')
@@ -29,7 +29,8 @@ class ErpClientForm
                             ->maxLength(255),
 
                         TextInput::make('contact_person')
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->required(),
 
                         TextInput::make('email')
                             ->email()
@@ -51,10 +52,10 @@ class ErpClientForm
                         TextInput::make('pan_number')
                             ->label('PAN Number')
                             ->maxLength(20),
-                    ]),
+                    ])->columnSpanFull(),
 
                 Section::make('Business Address')
-                    ->columns(2)
+                    ->columns(3)
                     ->schema([
                         Textarea::make('address')
                             ->rows(3)
@@ -72,7 +73,7 @@ class ErpClientForm
 
                         TextInput::make('country')
                             ->maxLength(255),
-                    ]),
+                    ])->columnSpanFull(),
 
                 Section::make('Other Information')
                     ->schema([
@@ -82,7 +83,7 @@ class ErpClientForm
                         Toggle::make('is_active')
                             ->label('Active Client')
                             ->default(true),
-                    ]),
+                    ])->columnSpanFull(),
             ]);
     }
 }
