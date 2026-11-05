@@ -175,6 +175,7 @@ class CrmLeadForm
                             ->default(fn() => CrmLeadStatus::query()
                                 ->where('slug', 'new')
                                 ->value('id'))
+                            ->live()
                             ->searchable()
                             ->required(),
 
@@ -242,7 +243,15 @@ class CrmLeadForm
                                     ->whereKey($get('status_id'))
                                     ->where('is_lost', true)
                                     ->exists()
-                            ),
+                            )
+                            ->required(
+                                fn($get): bool =>
+                                CrmLeadStatus::query()
+                                    ->whereKey($get('status_id'))
+                                    ->where('is_lost', true)
+                                    ->exists()
+                            )
+                            ->maxLength(5000),
                     ])
                     ->columnSpanFull(),
 

@@ -154,8 +154,8 @@
 
                 <div class="overflow-hidden rounded-3xl shadow-2xl">
 
-                    <img src="{{ asset('images/website/about/about-office.jpg') }}" alt="Unified Core India Office"
-                        class="h-[650px] w-full object-cover">
+                    <img src="{{ asset('images/website/about/about-office.jpg') }}" alt="Unified Core India office environment"
+                        loading="lazy" class="h-[360px] w-full object-cover sm:h-[500px] lg:h-[650px]">
 
                 </div>
 

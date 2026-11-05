@@ -1,4 +1,4 @@
-<section class="relative overflow-hidden bg-slate-950 text-white min-h-screen flex items-center">
+<section id="top" class="relative flex min-h-[calc(100vh-4rem)] items-center overflow-hidden bg-slate-950 py-16 text-white sm:py-20">
 
     {{-- Background --}}
     <div class="absolute inset-0">
@@ -37,7 +37,7 @@
 
                 </span>
 
-                <h1 class="mt-8 text-5xl md:text-6xl xl:text-7xl font-black leading-tight tracking-tight">
+                <h1 class="mt-8 text-4xl font-black leading-tight tracking-tight sm:text-5xl md:text-6xl xl:text-7xl">
 
                     DIGITIZE.
                     <br>
@@ -54,7 +54,7 @@
 
                 </h1>
 
-                <p class="mt-8 text-lg leading-8 text-slate-300 max-w-2xl">
+                <p class="mt-8 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
 
                     Unified Core India delivers enterprise-grade
                     Document Digitization,
@@ -85,7 +85,7 @@
 
                 </div>
 
-                <div class="mt-14 grid grid-cols-2 md:grid-cols-4 gap-5">
+                <div class="mt-14 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-4">
 
                     <div class="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
 
@@ -161,8 +161,8 @@
                 <div class="overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl backdrop-blur">
 
                     {{-- Replace later with actual hero image --}}
-                    <img src="{{ asset('images/website/hero/building.jpg') }}" alt="Unified Core India"
-                        class="h-[650px] w-full object-cover">
+                    <img src="{{ asset('images/website/hero/building.jpg') }}" alt="Modern enterprise workplace representing digital transformation"
+                        fetchpriority="high" class="h-[360px] w-full object-cover sm:h-[480px] lg:h-[650px]">
 
                 </div>
 

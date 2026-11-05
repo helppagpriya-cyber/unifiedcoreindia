@@ -1,58 +1,59 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Unified Core India
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Laravel application for the Unified Core India public website, CRM lead management, and EGJEWEL ERP administration.
 
-## About Laravel
+## Requirements
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- PHP 8.3 or later with the extensions required by Laravel and PhpSpreadsheet (including `fileinfo`, `mbstring`, `xml`, `zip`, and `gd`)
+- Composer
+- Node.js and npm
+- MySQL/MariaDB for a local XAMPP installation, or another Laravel-supported database
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Local setup
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+1. Copy `.env.example` to `.env` and configure the application URL, database, and session/cache/queue settings for the local environment.
+2. Install dependencies and generate an application key:
 
-## Learning Laravel
+   ```bash
+   composer install
+   php artisan key:generate
+   npm install
+   ```
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+3. Create the configured database, then apply migrations and base CRM data:
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+   ```bash
+   php artisan migrate --seed
+   ```
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+4. Build frontend assets:
 
-## Agentic Development
+   ```bash
+   npm run build
+   ```
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+5. Configure an authenticated user for the relevant Filament panel. The EGJEWEL workspace is at `/egjewel`; the administration panel is at `/admin`.
+
+For local development, `composer run dev` starts Laravel, the queue listener, logs, and Vite. In XAMPP, point the Apache document root at this project's `public` directory and make sure `mod_rewrite` and the required PHP extensions are enabled.
+
+## Main areas
+
+- `/` — public company website, service and industry information, and contact enquiry form.
+- `/egjewel` — CRM and EGJEWEL software, client, and license administration.
+- `/admin` — general project, client, user, role, and permission administration.
+
+Public contact form submissions are validated, rate limited, and stored as unassigned CRM leads with the Website source and New status when those seeded values are available. CRM users can find them in the lead inbox and assign an owner.
+
+The sales dashboard highlights unassigned enquiries and provides direct links to the matching filtered queues. Executives can bulk assign selected leads from the CRM inbox. Assignment changes are recorded in assignment history, and status changes are written to the lead activity timeline. A Lost status requires a reason so closed opportunities keep useful context.
+
+## CRM lead import
+
+The lead inbox supports Excel/CSV uploads. Validate a file, review individual rows in the Filament modal, correct invalid values, inspect duplicate matches, choose which rows to include, then confirm the import. Import preview files are kept on the private local disk and removed when the import is completed or discarded. The default upload size limit is 50 MB; PHP and Apache upload/post limits must also allow the chosen file size.
+
+Seed data can be safely reapplied with:
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+php artisan db:seed
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+The CRM source and status seeder uses `updateOrCreate`, so the Website source and lead statuses remain available to the web form and import workflow.

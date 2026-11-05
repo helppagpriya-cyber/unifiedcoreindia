@@ -1,0 +1,18 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament/EGJEWEL/**/*';
+@source '../../../../resources/views/filament/egjewel/**/*';
+
+@theme {
+    --color-primary-50: oklch(0.97 0.02 274);
+    --color-primary-100: oklch(0.94 0.04 274);
+    --color-primary-200: oklch(0.89 0.07 274);
+    --color-primary-300: oklch(0.82 0.11 274);
+    --color-primary-400: oklch(0.72 0.16 274);
+    --color-primary-500: oklch(0.62 0.21 274);
+    --color-primary-600: oklch(0.53 0.23 274);
+    --color-primary-700: oklch(0.46 0.21 274);
+    --color-primary-800: oklch(0.4 0.18 274);
+    --color-primary-900: oklch(0.35 0.14 274);
+    --color-primary-950: oklch(0.26 0.1 274);
+}

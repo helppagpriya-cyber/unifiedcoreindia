@@ -6,10 +6,12 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Pages\Dashboard;
+use App\Filament\EGJEWEL\Pages\CrmDashboard;
+use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -27,13 +29,26 @@ class EGJEWELPanelProvider extends PanelProvider
             ->id('egjewel')
             ->path('egjewel')
             ->login()
+            ->sidebarCollapsibleOnDesktop()
+            ->collapsibleNavigationGroups()
+            ->navigationGroups([
+                NavigationGroup::make('CRM')
+                    ->icon(Heroicon::OutlinedUserGroup),
+                NavigationGroup::make('ERP Operations')
+                    ->icon(Heroicon::OutlinedBuildingOffice2)
+                    ->collapsed(),
+                NavigationGroup::make('Software Catalog')
+                    ->icon(Heroicon::OutlinedCube)
+                    ->collapsed(),
+            ])
+            ->viteTheme('resources/css/filament/egjewel/theme.css')
             ->colors([
                 'primary' => Color::Indigo,
             ])
             ->discoverResources(in: app_path('Filament/EGJEWEL/Resources'), for: 'App\Filament\EGJEWEL\Resources')
             ->discoverPages(in: app_path('Filament/EGJEWEL/Pages'), for: 'App\Filament\EGJEWEL\Pages')
             ->pages([
-                Dashboard::class,
+                CrmDashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/EGJEWEL/Widgets'), for: 'App\Filament\EGJEWEL\Widgets')
             ->widgets([

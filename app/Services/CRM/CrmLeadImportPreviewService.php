@@ -7,8 +7,8 @@ use App\Models\CrmLead;
 use App\Models\CrmLeadSource;
 use App\Models\CrmLeadStatus;
 use App\Models\User;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use Carbon\Carbon;
@@ -18,7 +18,7 @@ class CrmLeadImportPreviewService
 {
     public function preview(string $path, string $disk = 'local'): array
     {
-        $import = new CrmLeadPreviewRowsImport();
+        $import = new CrmLeadPreviewRowsImport($this->getDataRowLimit($path, $disk));
 
         Excel::import($import, $path, $disk);
 
@@ -29,6 +29,7 @@ class CrmLeadImportPreviewService
         $statusMap = $this->makeLookup($statuses);
 
         $userMap = User::query()
+            ->where('is_active', true)
             ->whereNotNull('email')
             ->get(['id', 'email'])
             ->keyBy(fn($user) => strtolower(trim($user->email)));
@@ -42,11 +43,11 @@ class CrmLeadImportPreviewService
         foreach ($import->rows as $index => $row) {
             $data = $this->cleanRow($row->toArray());
 
-            if (empty(array_filter($data, fn($value) => $value !== null && $value !== ''))) {
+            if ($this->isEmptyRow($data)) {
                 continue;
             }
 
-            $rowNumber = $index + 2;
+            $rowNumber = $import->rowNumbers[$index] ?? ($index + 2);
 
             $data['company_name'] = $this->cleanText($data['company_name'] ?? null);
             $data['gst_number'] = $this->normalizeGst($data['gst_number'] ?? null);
@@ -69,33 +70,7 @@ class CrmLeadImportPreviewService
 
             $errors = [];
 
-            $validator = Validator::make($data, [
-                'company_name' => ['required', 'string', 'max:255'],
-                'contact_person' => ['nullable', 'string', 'max:255'],
-                'mobile' => ['nullable', 'string', 'max:255'],
-                'alternate_mobile' => ['nullable', 'string', 'max:255'],
-                'whatsapp_number' => ['nullable', 'string', 'max:255'],
-                'email' => ['nullable', 'email', 'max:255'],
-                'business_type' => ['nullable', 'string', 'max:255'],
-                'address' => ['nullable', 'string'],
-                'city' => ['nullable', 'string', 'max:255'],
-                'state' => ['nullable', 'string', 'max:255'],
-                'pincode' => ['nullable', 'numeric', 'max:999999'],
-                'country' => ['nullable', 'string', 'max:255'],
-                'gst_number' => ['nullable', 'string', 'max:30'],
-                'pan_number' => ['nullable', 'string', 'max:20'],
-                'product_interested' => ['nullable', 'string', 'max:255'],
-                'existing_software' => ['nullable', 'string', 'max:255'],
-                'requirements' => ['nullable', 'string'],
-                'estimated_budget' => ['nullable', 'numeric', 'min:0'],
-                'priority' => ['required', 'in:low,normal,high,urgent'],
-                'lead_date' => ['nullable', 'date'],
-                'next_follow_up_at' => ['nullable', 'date'],
-            ]);
-
-            if ($validator->fails()) {
-                $errors = array_merge($errors, $validator->errors()->all());
-            }
+            $errors = array_merge($errors, $this->validateLeadData($data));
 
             $source = $sourceMap[$this->lookupKey($data['source'])] ?? null;
 
@@ -144,38 +119,16 @@ class CrmLeadImportPreviewService
             }
 
             if ($data['company_name']) {
-                $companyNames[] = $this->lookupKey($data['company_name']);
+                $companyNames[] = $data['company_name'];
             }
         }
 
-        $existingLeads = CrmLead::withTrashed()
-            ->where(function ($query) use ($gstNumbers, $mobiles, $emails, $companyNames) {
-                if ($gstNumbers) {
-                    $query->orWhereIn('gst_number', array_unique($gstNumbers));
-                }
-
-                if ($mobiles) {
-                    $query->orWhereIn('mobile', array_unique($mobiles));
-                }
-
-                if ($emails) {
-                    $query->orWhereIn('email', array_unique($emails));
-                }
-
-                if ($companyNames) {
-                    $query->orWhereIn('company_name', array_unique(
-                        array_map(fn($name) => $name, $companyNames)
-                    ));
-                }
-            })
-            ->get([
-                'id',
-                'lead_number',
-                'company_name',
-                'gst_number',
-                'mobile',
-                'email',
-            ]);
+        $existingLeads = $this->findExistingLeads(
+            $gstNumbers,
+            $mobiles,
+            $emails,
+            $companyNames,
+        );
 
         $existingGst = [];
         $existingMobile = [];
@@ -227,7 +180,13 @@ class CrmLeadImportPreviewService
             if ($duplicate) {
                 $item['status'] = 'duplicate';
                 $item['duplicate_type'] = 'strong';
-                $item['duplicate_message'] = $duplicate[0];
+                $duplicateValue = match (true) {
+                    str_contains($duplicate[0], 'GST number') => $data['gst_number'],
+                    str_contains($duplicate[0], 'Mobile number') => $data['mobile'],
+                    str_contains($duplicate[0], 'Email address') => $data['email'],
+                    default => null,
+                };
+                $item['duplicate_message'] = $duplicate[0] . ($duplicateValue ? " ({$duplicateValue})" : '');
 
                 if ($duplicate[1] instanceof CrmLead) {
                     $item['duplicate_message'] .= ' already exists in lead ' .
@@ -244,7 +203,7 @@ class CrmLeadImportPreviewService
                 $item['status'] = $item['errors'] ? 'invalid' : 'possible_duplicate';
                 $item['duplicate_type'] = 'possible';
                 $item['duplicate_message'] = 'Company name matches existing lead ' .
-                    ($lead->lead_number ?: "#{$lead->id}") .
+                    ($lead->lead_number ?: "#{$lead->id}") . ' (' . $data['company_name'] . ')' .
                     '. Please review manually.';
             } elseif (
                 $data['company_name'] &&
@@ -252,7 +211,7 @@ class CrmLeadImportPreviewService
             ) {
                 $item['status'] = $item['errors'] ? 'invalid' : 'possible_duplicate';
                 $item['duplicate_type'] = 'possible';
-                $item['duplicate_message'] = "Company name also appears in uploaded row {$seenCompany[$this->lookupKey($data['company_name'])]}.";
+                $item['duplicate_message'] = "Company name ({$data['company_name']}) also appears in uploaded row {$seenCompany[$this->lookupKey($data['company_name'])]}.";
             }
 
             if ($data['gst_number']) {
@@ -286,6 +245,155 @@ class CrmLeadImportPreviewService
         ];
     }
 
+    public function revalidateRow(array $row, array $allRows): array
+    {
+        $previousStatus = $row['status'] ?? null;
+        $wasIncluded = (bool) ($row['include_in_import'] ?? false);
+        $data = $this->cleanRow($row['data'] ?? []);
+        $data['company_name'] = $this->cleanText($data['company_name'] ?? null);
+        $data['gst_number'] = $this->normalizeGst($data['gst_number'] ?? null);
+        $data['mobile'] = $this->normalizePhone($data['mobile'] ?? null);
+        $data['alternate_mobile'] = $this->normalizePhone($data['alternate_mobile'] ?? null);
+        $data['whatsapp_number'] = $this->normalizePhone($data['whatsapp_number'] ?? null);
+        $data['email'] = $this->normalizeEmail($data['email'] ?? null);
+        $data['priority'] = strtolower(trim((string) ($data['priority'] ?? 'normal'))) ?: 'normal';
+        $data['source'] = $this->cleanText($data['source'] ?? null) ?: 'Other';
+        $data['status'] = $this->cleanText($data['status'] ?? null) ?: 'New';
+        $data['lead_date'] = $this->normalizeDate($data['lead_date'] ?? null, false);
+        $data['next_follow_up_at'] = $this->normalizeDate($data['next_follow_up_at'] ?? null, true);
+        $data['country'] = $this->cleanText($data['country'] ?? null) ?: 'India';
+
+        $errors = $this->validateLeadData($data);
+        $source = CrmLeadSource::query()->where('is_active', true)
+            ->where(fn ($query) => $query
+                ->whereRaw('LOWER(name) = ?', [mb_strtolower($data['source'])])
+                ->orWhereRaw('LOWER(slug) = ?', [mb_strtolower($data['source'])]))
+            ->first();
+        $status = CrmLeadStatus::query()->where('is_active', true)
+            ->where(fn ($query) => $query
+                ->whereRaw('LOWER(name) = ?', [mb_strtolower($data['status'])])
+                ->orWhereRaw('LOWER(slug) = ?', [mb_strtolower($data['status'])]))
+            ->first();
+
+        if (! $source) {
+            $errors[] = "Unknown or inactive lead source: {$data['source']}";
+        }
+
+        if (! $status) {
+            $errors[] = "Unknown or inactive lead status: {$data['status']}";
+        }
+
+        $assignedEmail = $this->normalizeEmail($data['assigned_to_email'] ?? null);
+        $assignedUser = $assignedEmail
+            ? User::query()->where('is_active', true)->whereRaw('LOWER(email) = ?', [$assignedEmail])->first(['id', 'email'])
+            : null;
+
+        if ($assignedEmail && ! $assignedUser) {
+            $errors[] = "Employee email not found: {$assignedEmail}";
+        }
+
+        $data['source_id'] = $source?->id;
+        $data['status_id'] = $status?->id;
+        $data['assigned_to'] = $assignedUser?->id;
+
+        $row['data'] = $data;
+        $row['errors'] = $errors;
+        $row['status'] = $errors ? 'invalid' : 'ready';
+        $row['duplicate_type'] = null;
+        $row['duplicate_message'] = null;
+
+        $existing = $this->findExistingLeads(
+            array_filter([$data['gst_number']]),
+            array_filter([$data['mobile']]),
+            array_filter([$data['email']]),
+            array_filter([$data['company_name']]),
+        );
+
+        $strongMatch = null;
+        $strongField = null;
+        $strongValue = null;
+        $possibleMatch = null;
+
+        foreach ($existing as $lead) {
+            if ($data['gst_number'] && $this->normalizeGst($lead->gst_number) === $data['gst_number']) {
+                $strongMatch = $lead;
+                $strongField = 'GST number';
+                $strongValue = $data['gst_number'];
+                break;
+            }
+
+            if ($data['mobile'] && $this->normalizePhone($lead->mobile) === $data['mobile']) {
+                $strongMatch = $lead;
+                $strongField = 'Mobile number';
+                $strongValue = $data['mobile'];
+                break;
+            }
+
+            if ($data['email'] && $this->normalizeEmail($lead->email) === $data['email']) {
+                $strongMatch = $lead;
+                $strongField = 'Email address';
+                $strongValue = $data['email'];
+                break;
+            }
+
+            if ($data['company_name'] && $this->lookupKey($lead->company_name) === $this->lookupKey($data['company_name'])) {
+                $possibleMatch = 'existing lead ' . ($lead->lead_number ?: "#{$lead->id}");
+            }
+        }
+
+        foreach ($allRows as $otherRow) {
+            if ((int) ($otherRow['row_number'] ?? 0) === (int) ($row['row_number'] ?? 0)) {
+                continue;
+            }
+
+            $other = $otherRow['data'] ?? [];
+            if ($data['gst_number'] && $this->normalizeGst($other['gst_number'] ?? null) === $data['gst_number']) {
+                $strongMatch = "uploaded row {$otherRow['row_number']}";
+                $strongField = 'GST number';
+                $strongValue = $data['gst_number'];
+                break;
+            }
+
+            if ($data['mobile'] && $this->normalizePhone($other['mobile'] ?? null) === $data['mobile']) {
+                $strongMatch = "uploaded row {$otherRow['row_number']}";
+                $strongField = 'Mobile number';
+                $strongValue = $data['mobile'];
+                break;
+            }
+
+            if ($data['email'] && $this->normalizeEmail($other['email'] ?? null) === $data['email']) {
+                $strongMatch = "uploaded row {$otherRow['row_number']}";
+                $strongField = 'Email address';
+                $strongValue = $data['email'];
+                break;
+            }
+
+            if ($data['company_name'] && $this->lookupKey($other['company_name'] ?? null) === $this->lookupKey($data['company_name'])) {
+                $possibleMatch = "uploaded row {$otherRow['row_number']}";
+            }
+        }
+
+        if ($strongMatch) {
+            $row['status'] = 'duplicate';
+            $row['duplicate_type'] = 'strong';
+            $row['duplicate_message'] = $strongMatch instanceof CrmLead
+                ? "{$strongField} ({$strongValue}) already exists in lead " . ($strongMatch->lead_number ?: "#{$strongMatch->id}") . '.'
+                : "{$strongField} ({$strongValue}) also appears in {$strongMatch}.";
+        } elseif ($possibleMatch) {
+            $row['status'] = $errors ? 'invalid' : 'possible_duplicate';
+            $row['duplicate_type'] = 'possible';
+            $row['duplicate_message'] = 'Company name (' . $data['company_name'] . ') matches ' . $possibleMatch . '. Review before importing.';
+        }
+
+        $row['include_in_import'] = match ($row['status']) {
+            'ready' => ($previousStatus === 'ready') ? $wasIncluded : true,
+            'possible_duplicate' => $wasIncluded,
+            default => false,
+        };
+
+        return $row;
+    }
+
     private function makeLookup($records): array
     {
         $lookup = [];
@@ -296,6 +404,199 @@ class CrmLeadImportPreviewService
         }
 
         return $lookup;
+    }
+
+    private function getDataRowLimit(string $path, string $disk): ?int
+    {
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $absolutePath = Storage::disk($disk)->path($path);
+
+        if ($extension === 'csv') {
+            $file = new \SplFileObject($absolutePath, 'r');
+            $file->setFlags(\SplFileObject::READ_CSV | \SplFileObject::DROP_NEW_LINE);
+            $records = 0;
+
+            while (! $file->eof()) {
+                $record = $file->fgetcsv();
+
+                if ($record !== false && $record !== [null]) {
+                    $records++;
+                }
+            }
+
+            return max(0, $records - 1);
+        }
+
+        if ($extension !== 'xlsx' || ! class_exists(\ZipArchive::class) || ! class_exists(\XMLReader::class)) {
+            return null;
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($absolutePath) !== true) {
+            return null;
+        }
+
+        $lastDataRow = 1;
+
+        try {
+            for ($index = 0; $index < $zip->numFiles; $index++) {
+                $name = $zip->getNameIndex($index);
+
+                if (! is_string($name) || ! preg_match('#^xl/worksheets/sheet\d+\.xml$#', $name)) {
+                    continue;
+                }
+
+                $xml = $zip->getFromIndex($index);
+                if (! is_string($xml)) {
+                    continue;
+                }
+
+                $reader = new \XMLReader();
+                if (! $reader->XML($xml, null, LIBXML_NONET | LIBXML_COMPACT)) {
+                    continue;
+                }
+
+                while ($reader->read()) {
+                    if ($reader->nodeType !== \XMLReader::ELEMENT || $reader->localName !== 'c') {
+                        continue;
+                    }
+
+                    $reference = $reader->getAttribute('r');
+                    if (! is_string($reference) || ! preg_match('/\d+$/', $reference, $rowMatch)) {
+                        continue;
+                    }
+
+                    $cellXml = $reader->readOuterXml();
+                    if (preg_match('/<(?:\w+:)?f(?:\s|>)/', $cellXml)) {
+                        $lastDataRow = max($lastDataRow, (int) $rowMatch[0]);
+
+                        continue;
+                    }
+
+                    if (preg_match('/<(?:\w+:)?v(?:\s[^>]*)?>(.*?)<\/(?:\w+:)?v>/s', $cellXml, $valueMatch)
+                        && trim($valueMatch[1]) !== '') {
+                        $lastDataRow = max($lastDataRow, (int) $rowMatch[0]);
+
+                        continue;
+                    }
+
+                    if (preg_match('/<(?:\w+:)?is\b.*?<(?:\w+:)?t(?:\s[^>]*)?>(.*?)<\/(?:\w+:)?t>/s', $cellXml, $inlineMatch)
+                        && trim($inlineMatch[1]) !== '') {
+                        $lastDataRow = max($lastDataRow, (int) $rowMatch[0]);
+                    }
+                }
+
+                $reader->close();
+            }
+        } finally {
+            $zip->close();
+        }
+
+        return max(0, $lastDataRow - 1);
+    }
+
+    private function isEmptyRow(array $data): bool
+    {
+        foreach ($data as $value) {
+            if ($value !== null && $value !== '') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function validateLeadData(array $data): array
+    {
+        $errors = [];
+        $requiredCompany = $data['company_name'] ?? null;
+
+        if (! is_string($requiredCompany) || $requiredCompany === '') {
+            $errors[] = 'The company name field is required.';
+        } elseif (mb_strlen($requiredCompany) > 255) {
+            $errors[] = 'The company name may not be greater than 255 characters.';
+        }
+
+        foreach ([
+            'contact_person' => 255,
+            'mobile' => 20,
+            'alternate_mobile' => 20,
+            'whatsapp_number' => 20,
+            'business_type' => 255,
+            'city' => 255,
+            'state' => 255,
+            'country' => 255,
+            'gst_number' => 20,
+            'pan_number' => 20,
+            'product_interested' => 255,
+            'existing_software' => 255,
+        ] as $field => $maxLength) {
+            $value = $data[$field] ?? null;
+
+            if ($value !== null && ! is_string($value)) {
+                $errors[] = "The {$field} must be a string.";
+            } elseif (is_string($value) && mb_strlen($value) > $maxLength) {
+                $errors[] = "The {$field} may not be greater than {$maxLength} characters.";
+            }
+        }
+
+        $email = $data['email'] ?? null;
+        if ($email !== null && (! filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($email) > 255)) {
+            $errors[] = 'The email must be a valid email address of at most 255 characters.';
+        }
+
+        $pincode = $data['pincode'] ?? null;
+        if ($pincode !== null && (! is_numeric($pincode) || (float) $pincode > 999999)) {
+            $errors[] = 'The pincode must be numeric and no greater than 999999.';
+        }
+
+        $budget = $data['estimated_budget'] ?? null;
+        if ($budget !== null && (! is_numeric($budget) || (float) $budget < 0)) {
+            $errors[] = 'The estimated budget must be a number greater than or equal to zero.';
+        }
+
+        if (! in_array($data['priority'] ?? null, ['low', 'normal', 'high', 'urgent'], true)) {
+            $errors[] = 'The priority must be low, normal, high, or urgent.';
+        }
+
+        foreach (['lead_date', 'next_follow_up_at'] as $field) {
+            if (($data[$field] ?? null) !== null && strtotime((string) $data[$field]) === false) {
+                $errors[] = "The {$field} is not a valid date.";
+            }
+        }
+
+        foreach (['address', 'requirements'] as $field) {
+            if (($data[$field] ?? null) !== null && ! is_string($data[$field])) {
+                $errors[] = "The {$field} must be a string.";
+            }
+        }
+
+        return $errors;
+    }
+
+    private function findExistingLeads(array $gstNumbers, array $mobiles, array $emails, array $companyNames)
+    {
+        $matches = collect();
+
+        foreach ([
+            'gst_number' => $gstNumbers,
+            'mobile' => $mobiles,
+            'email' => $emails,
+            'company_name' => $companyNames,
+        ] as $column => $values) {
+            foreach (array_chunk(array_values(array_unique($values)), 500) as $chunk) {
+                if ($chunk === []) {
+                    continue;
+                }
+
+                CrmLead::withTrashed()
+                    ->whereIn($column, $chunk)
+                    ->get(['id', 'lead_number', 'company_name', 'gst_number', 'mobile', 'email'])
+                    ->each(fn (CrmLead $lead) => $matches->put($lead->id, $lead));
+            }
+        }
+
+        return $matches->values();
     }
 
     private function cleanRow(array $row): array
