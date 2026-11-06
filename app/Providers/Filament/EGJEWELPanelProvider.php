@@ -29,6 +29,7 @@ class EGJEWELPanelProvider extends PanelProvider
             ->id('egjewel')
             ->path('egjewel')
             ->login()
+            ->profile(isSimple: false)
             ->sidebarCollapsibleOnDesktop()
             ->collapsibleNavigationGroups()
             ->navigationGroups([

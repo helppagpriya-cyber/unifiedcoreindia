@@ -5,6 +5,8 @@ namespace App\Filament\EGJEWEL\Resources\ErpSoftwareVersions\Tables;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\Action;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\IconColumn;
@@ -31,6 +33,11 @@ class ErpSoftwareVersionsTable
                 TextColumn::make('legacy_version_code')
                     ->label('VFP Code'),
 
+                TextColumn::make('package_original_name')
+                    ->label('ZIP Package')
+                    ->placeholder('Not uploaded')
+                    ->limit(32),
+
                 IconColumn::make('is_active')
                     ->boolean(),
             ])
@@ -39,6 +46,11 @@ class ErpSoftwareVersionsTable
             ])
             ->recordActions([
                 EditAction::make(),
+                Action::make('download')
+                    ->label('Download ZIP')
+                    ->icon(Heroicon::OutlinedArrowDownTray)
+                    ->url(fn ($record): string => route('erp-packages.version.download', $record))
+                    ->visible(fn ($record): bool => filled($record->package_path)),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

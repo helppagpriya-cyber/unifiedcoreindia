@@ -46,7 +46,18 @@ class User extends Authenticatable implements FilamentUser
     }
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->is_active;
+        if (! $this->is_active) {
+            return false;
+        }
+
+        return match ($panel->getId()) {
+            'admin' => $this->hasAnyRole(['Super Admin', 'Admin']),
+            'egjewel' => $this->hasAnyRole([
+                'Super Admin', 'Admin', 'ERP Manager', 'EGJewel Executive',
+                'Project Manager', 'Supervisor', 'Scanner Operator', 'QC Operator', 'Data Entry Operator',
+            ]),
+            default => false,
+        };
     }
     public function getCodeColumn(): string
     {

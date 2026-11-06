@@ -17,6 +17,9 @@ class RoleSeeder extends Seeder
         $roles = [
             'Super Admin',
             'Admin',
+            'User',
+            'ERP Manager',
+            'EGJewel Executive',
             'Project Manager',
             'Supervisor',
             'Scanner Operator',

@@ -1,0 +1,23 @@
+<x-layouts.website title="Create account | Unified Core India">
+    <section class="relative overflow-hidden bg-slate-100 px-4 py-12 sm:px-6 sm:py-16">
+        <div class="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-cyan-200/50 blur-3xl"></div>
+        <div class="relative mx-auto grid max-w-5xl overflow-hidden rounded-3xl bg-white shadow-xl shadow-slate-900/10 md:grid-cols-[0.85fr_1.15fr]">
+            <div class="flex flex-col justify-between bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950 p-8 text-white sm:p-10">
+                <div><span class="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-cyan-200">Unified Core India</span><h1 class="mt-8 text-3xl font-bold leading-tight sm:text-4xl">Your work, connected.</h1><p class="mt-4 leading-7 text-slate-300">Create an account to stay connected with our services and digital workspace.</p></div>
+                <div class="mt-10 rounded-2xl border border-white/10 bg-white/5 p-4"><p class="text-sm font-semibold">Safe by default</p><p class="mt-1 text-sm leading-6 text-slate-300">Every new account starts with the standard User role. Workspace access is granted by an administrator.</p></div>
+            </div>
+            <div class="p-6 sm:p-10">
+                <div class="mb-7"><p class="text-sm font-semibold text-cyan-800">GET STARTED</p><h2 class="mt-2 text-2xl font-bold text-slate-900">Create your account</h2><p class="mt-2 text-sm text-slate-600">Enter your details to register.</p></div>
+                @if ($errors->any())<div class="mb-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">Please review the highlighted fields.</div>@endif
+                <form method="POST" action="{{ route('register.store') }}" class="space-y-4">@csrf
+                    <label class="block text-sm font-semibold text-slate-700">Full name<input name="name" value="{{ old('name') }}" required autocomplete="name" placeholder="Your name" class="mt-1.5 w-full rounded-xl border-slate-300 px-3.5 py-3 font-normal shadow-sm focus:border-cyan-600 focus:ring-cyan-600" />@error('name')<span class="mt-1 block text-xs font-normal text-red-600">{{ $message }}</span>@enderror</label>
+                    <label class="block text-sm font-semibold text-slate-700">Work email<input type="email" name="email" value="{{ old('email') }}" required autocomplete="email" placeholder="you@example.com" class="mt-1.5 w-full rounded-xl border-slate-300 px-3.5 py-3 font-normal shadow-sm focus:border-cyan-600 focus:ring-cyan-600" />@error('email')<span class="mt-1 block text-xs font-normal text-red-600">{{ $message }}</span>@enderror</label>
+                    <label class="block text-sm font-semibold text-slate-700">Mobile <span class="font-normal text-slate-400">(optional)</span><input name="mobile" value="{{ old('mobile') }}" autocomplete="tel" placeholder="Your contact number" class="mt-1.5 w-full rounded-xl border-slate-300 px-3.5 py-3 font-normal shadow-sm focus:border-cyan-600 focus:ring-cyan-600" />@error('mobile')<span class="mt-1 block text-xs font-normal text-red-600">{{ $message }}</span>@enderror</label>
+                    <div class="grid gap-4 sm:grid-cols-2"><label class="block text-sm font-semibold text-slate-700">Password<input type="password" name="password" required autocomplete="new-password" placeholder="At least 8 characters" class="mt-1.5 w-full rounded-xl border-slate-300 px-3.5 py-3 font-normal shadow-sm focus:border-cyan-600 focus:ring-cyan-600" />@error('password')<span class="mt-1 block text-xs font-normal text-red-600">{{ $message }}</span>@enderror</label><label class="block text-sm font-semibold text-slate-700">Confirm password<input type="password" name="password_confirmation" required autocomplete="new-password" placeholder="Repeat password" class="mt-1.5 w-full rounded-xl border-slate-300 px-3.5 py-3 font-normal shadow-sm focus:border-cyan-600 focus:ring-cyan-600" /></label></div>
+                    <button class="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-800 px-4 py-3.5 font-semibold text-white shadow-lg shadow-cyan-900/15 transition hover:bg-cyan-900 focus:outline-none focus:ring-2 focus:ring-cyan-600 focus:ring-offset-2">Create account <x-heroicon-o-arrow-right class="h-4 w-4" /></button>
+                </form>
+                <p class="mt-6 text-center text-sm text-slate-600">Already have an account? <a href="/admin/login" class="font-semibold text-cyan-800 hover:text-cyan-950">Sign in to a workspace</a></p>
+            </div>
+        </div>
+    </section>
+</x-layouts.website>

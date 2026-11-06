@@ -15,6 +15,8 @@ class ErpSoftwareVersion extends Model
         'legacy_version_code',
         'description',
         'is_active',
+        'package_path',
+        'package_original_name',
     ];
 
     protected function casts(): array

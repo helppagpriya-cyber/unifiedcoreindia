@@ -17,6 +17,8 @@ class ErpSoftwareModule extends Model
         'legacy_position',
         'description',
         'is_active',
+        'package_path',
+        'package_original_name',
     ];
 
     protected function casts(): array

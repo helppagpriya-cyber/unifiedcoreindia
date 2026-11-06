@@ -8,6 +8,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\FileUpload;
 
 class ErpSoftwareModuleForm
 {
@@ -57,6 +58,18 @@ class ErpSoftwareModuleForm
 
                         Textarea::make('description')
                             ->rows(3)
+                            ->columnSpanFull(),
+
+                        FileUpload::make('package_path')
+                            ->label('Module ZIP')
+                            ->disk('local')
+                            ->directory('erp-packages/modules')
+                            ->visibility('private')
+                            ->acceptedFileTypes(['application/zip', 'application/x-zip-compressed', 'application/octet-stream'])
+                            ->rules(['mimes:zip'])
+                            ->maxSize(512000)
+                            ->storeFileNamesIn('package_original_name')
+                            ->helperText('Upload the installation package for this module. ZIP only, up to 500 MB.')
                             ->columnSpanFull(),
 
                         Toggle::make('is_active')
