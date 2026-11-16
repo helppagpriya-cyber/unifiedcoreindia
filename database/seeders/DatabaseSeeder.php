@@ -20,6 +20,9 @@ class DatabaseSeeder extends Seeder
         $this->call([
             PermissionsSeeder::class,
             CrmLeadSeeder::class,
+            ErpSoftwareProductSeeder::class,
+            ErpSoftwareVersionSeeder::class,
+            ErpSoftwareModuleSeeder::class,
         ]);
     }
 }

@@ -10,8 +10,8 @@ class ErpSoftwareModuleSeeder extends Seeder
 {
     public function run(): void
     {
-        $product = ErpSoftwareProduct::where('name', 'EGJEWEL')
-            ->firstOrFail();
+        $product = ErpSoftwareProduct::where('code', 'EGJEWEL-ERP')->firstOrFail();
+
 
         $modules = [
             [
